@@ -30,6 +30,7 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/voting-app:latest
+          provenance: false
 
   # JOB 2: Deploy to CloudLab using the self-hosted runner
   deploy:
