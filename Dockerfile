@@ -26,7 +26,7 @@ RUN npm install --omit=dev
 COPY . .
 
 
-COPY --from=frontend-builder /usr/src/app/frontend/dist ./frontend/dist
+COPY --from=frontend-builder /usr/src/app/frontend/build ./frontend/build
 
 
 USER node
