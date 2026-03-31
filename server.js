@@ -7,21 +7,23 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
 
-// Configure Sessions
+
+app.use(express.static(path.join(__dirname, 'frontend/build')));
+
+
 app.use(session({
-    secret: 'super-secret-key', // In production, use environment variables!
+    secret: 'super-secret-key', 
     resave: false,
     saveUninitialized: false
 }));
 
-// Connect to PostgreSQL using the connection string from docker-compose
+
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL
 });
 
-// Initialize Database Tables
+
 async function initDB() {
     try {
         await pool.query(`
@@ -43,22 +45,20 @@ async function initDB() {
 }
 initDB();
 
-// --- ROUTES ---
 
-// 1. Register a new user (Simplified for demo)
-app.post('/register', async (req, res) => {
+app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
     const hashedPassword = await bcrypt.hash(password, 10);
     try {
         await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, hashedPassword]);
-        res.status(201).send("User registered. You can now login.");
+        res.status(201).json({ message: "User registered. You can now login." });
     } catch (err) {
-        res.status(400).send("Username might already exist.");
+        res.status(400).json({ error: "Username might already exist." });
     }
 });
 
-// 2. Login
-app.post('/login', async (req, res) => {
+
+app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
     
@@ -67,19 +67,20 @@ app.post('/login', async (req, res) => {
         if (await bcrypt.compare(password, user.password)) {
             req.session.userId = user.id;
             req.session.hasVoted = user.has_voted;
-            return res.send("Login successful!");
+            // Send back JSON with the user's vote status so React knows what page to show!
+            return res.json({ message: "Login successful!", hasVoted: user.has_voted }); 
         }
     }
-    res.status(401).send("Invalid credentials.");
+    res.status(401).json({ error: "Invalid credentials." });
 });
 
-// 3. Vote
-app.post('/vote', async (req, res) => {
-    if (!req.session.userId) return res.status(403).send("Must be logged in to vote.");
-    if (req.session.hasVoted) return res.status(403).send("You have already voted!");
+
+app.post('/api/vote', async (req, res) => {
+    if (!req.session.userId) return res.status(403).json({ error: "Must be logged in to vote." });
+    if (req.session.hasVoted) return res.status(403).json({ error: "You have already voted!" });
 
     const { party } = req.body;
-    if (party !== 'Republican' && party !== 'Democrat') return res.status(400).send("Invalid party.");
+    if (party !== 'Republican' && party !== 'Democrat') return res.status(400).json({ error: "Invalid party." });
 
     try {
         await pool.query('BEGIN');
@@ -88,11 +89,25 @@ app.post('/vote', async (req, res) => {
         await pool.query('COMMIT');
         
         req.session.hasVoted = true;
-        res.send(`Successfully voted for ${party}.`);
+        res.json({ message: `Successfully voted for ${party}.` });
     } catch (err) {
         await pool.query('ROLLBACK');
-        res.status(500).send("Voting failed.");
+        res.status(500).json({ error: "Voting failed." });
     }
+});
+
+
+app.get('/api/status', (req, res) => {
+    if (req.session.userId) {
+        res.json({ loggedIn: true, hasVoted: req.session.hasVoted });
+    } else {
+        res.json({ loggedIn: false });
+    }
+});
+
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend/build/index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
