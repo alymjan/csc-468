@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  web:
+    image: YOUR_DOCKERHUB_USERNAME/voting-app:latest
+    ports:
+      - "8080:3000" 
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgres://votinguser:securepassword@db:5432/votingdb
+    # DEFENSE IN DEPTH: Drop capabilities
+    cap_drop:
+      - ALL
+    # DEFENSE IN DEPTH: Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: votinguser
+      POSTGRES_PASSWORD: securepassword
+      POSTGRES_DB: votingdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # DEFENSE IN DEPTH: Drop capabilities
+    cap_drop:
+      - ALL
+    # DEFENSE IN DEPTH: Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+volumes:
+  pgdata:
