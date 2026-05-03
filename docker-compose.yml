@@ -9,7 +9,6 @@ services:
     depends_on:
       - db
     environment:
-    
       - MONGO_URI=mongodb://db:27017/votingApp
     cap_drop:
       - ALL
@@ -20,23 +19,22 @@ services:
           memory: 512M
 
   db:
-  image: mongo:4.4
-  ports:
-    - "27017:27017"
-  volumes:
-    - mongodata:/data/db
-  
-  cap_drop:
-    - ALL
-  cap_add:
-    - CHOWN
-    - SETUID
-    - SETGID
-  deploy:
-    resources:
-      limits:
-        cpus: '0.50'
-        memory: 512M
+    image: mongo:4.4
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
 
 volumes:
-  mongodata: 
+  mongodata:
