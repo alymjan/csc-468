@@ -1,13 +1,13 @@
 name: CI/CD Pipeline
 
-# Trigger this workflow every time code is pushed to the main branch
+
 on:
   push:
     branches:
       - main
 
 jobs:
-  # JOB 1: Build the image and push to Docker Hub
+  
   build-and-push:
     runs-on: ubuntu-latest
     steps:
@@ -32,10 +32,10 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/voting-app:latest
           provenance: false
 
-  # JOB 2: Deploy to CloudLab using the self-hosted runner
+  
   deploy:
-    needs: build-and-push # This ensures deploy only runs IF the build succeeds
-    runs-on: self-hosted  # This tells GitHub to run these commands on your CloudLab machine
+    needs: build-and-push 
+    runs-on: self-hosted  
     steps:
       - name: Pull latest image and restart container
         run: |
