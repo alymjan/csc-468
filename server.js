@@ -1,5 +1,5 @@
 const express = require('express');
-const { Pool } = require('pg');
+const mongoose = require('mongoose'); // Swapped pg for mongoose
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const path = require('path');
@@ -8,70 +8,78 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-
+// Serve static React files
 app.use(express.static(path.join(__dirname, 'frontend/build')));
 
-
+// Session configuration
 app.use(session({
     secret: 'super-secret-key', 
     resave: false,
     saveUninitialized: false
 }));
 
+// Connect to MongoDB
+const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/votingApp';
+mongoose.connect(mongoURI)
+    .then(() => console.log("Connected to MongoDB."))
+    .catch(err => console.error("Error connecting to MongoDB:", err));
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL
+// Define Mongoose Schemas and Models
+const userSchema = new mongoose.Schema({
+    username: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    has_voted: { type: Boolean, default: false }
 });
+const User = mongoose.model('User', userSchema);
+
+const voteSchema = new mongoose.Schema({
+    party: { type: String, required: true }
+});
+const Vote = mongoose.model('Vote', voteSchema);
 
 
-async function initDB() {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                has_voted BOOLEAN DEFAULT FALSE
-            );
-            CREATE TABLE IF NOT EXISTS votes (
-                id SERIAL PRIMARY KEY,
-                party VARCHAR(50) NOT NULL
-            );
-        `);
-        console.log("Database tables initialized.");
-    } catch (err) {
-        console.error("Error initializing DB", err);
-    }
-}
-initDB();
-
+// --- ROUTES ---
 
 app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
     try {
-        await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, hashedPassword]);
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // Create and save the new user
+        const newUser = new User({ 
+            username, 
+            password: hashedPassword 
+        });
+        await newUser.save();
+        
         res.status(201).json({ message: "User registered. You can now login." });
     } catch (err) {
-        res.status(400).json({ error: "Username might already exist." });
+        // MongoDB throws code 11000 for duplicate unique keys
+        if (err.code === 11000) {
+            res.status(400).json({ error: "Username might already exist." });
+        } else {
+            res.status(500).json({ error: "Server error during registration." });
+        }
     }
 });
 
 
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-    
-    if (result.rows.length > 0) {
-        const user = result.rows[0];
-        if (await bcrypt.compare(password, user.password)) {
-            req.session.userId = user.id;
+    try {
+        // Find user by username
+        const user = await User.findOne({ username });
+        
+        if (user && await bcrypt.compare(password, user.password)) {
+            req.session.userId = user._id; // MongoDB uses _id instead of id
             req.session.hasVoted = user.has_voted;
-            // Send back JSON with the user's vote status so React knows what page to show!
             return res.json({ message: "Login successful!", hasVoted: user.has_voted }); 
         }
+        
+        res.status(401).json({ error: "Invalid credentials." });
+    } catch (err) {
+        res.status(500).json({ error: "Server error during login." });
     }
-    res.status(401).json({ error: "Invalid credentials." });
 });
 
 
@@ -83,15 +91,16 @@ app.post('/api/vote', async (req, res) => {
     if (party !== 'Republican' && party !== 'Democrat') return res.status(400).json({ error: "Invalid party." });
 
     try {
-        await pool.query('BEGIN');
-        await pool.query('INSERT INTO votes (party) VALUES ($1)', [party]);
-        await pool.query('UPDATE users SET has_voted = TRUE WHERE id = $1', [req.session.userId]);
-        await pool.query('COMMIT');
+        // 1. Record the vote
+        const newVote = new Vote({ party });
+        await newVote.save();
+
+        // 2. Mark the user as having voted
+        await User.findByIdAndUpdate(req.session.userId, { has_voted: true });
         
         req.session.hasVoted = true;
         res.json({ message: `Successfully voted for ${party}.` });
     } catch (err) {
-        await pool.query('ROLLBACK');
         res.status(500).json({ error: "Voting failed." });
     }
 });
@@ -105,7 +114,7 @@ app.get('/api/status', (req, res) => {
     }
 });
 
-
+// Fallback to serve the React app
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend/build/index.html'));
 });
