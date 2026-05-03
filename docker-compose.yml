@@ -3,13 +3,13 @@ version: '3.8'
 services:
   web:
     image: alymjanrejepov/voting-app:latest
-    build: . # Tells compose to build the image from your Dockerfile
+    build: .
     ports:
-      - "8080:3000" # Exposing React/Node to port 8080 on your host machine
+      - "8080:3000"
     depends_on:
       - db
     environment:
-      # Updated to point to the MongoDB container instead of Postgres
+    
       - MONGO_URI=mongodb://db:27017/votingApp
     cap_drop:
       - ALL
@@ -20,19 +20,23 @@ services:
           memory: 512M
 
   db:
-    # Swapped Postgres out for MongoDB
-    image: mongo:latest
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodata:/data/db
-    cap_drop:
-      - ALL
-    deploy:
-      resources:
-        limits:
-          cpus: '0.50'
-          memory: 512M
+  image: mongo:4.4
+  ports:
+    - "27017:27017"
+  volumes:
+    - mongodata:/data/db
+  
+  cap_drop:
+    - ALL
+  cap_add:
+    - CHOWN
+    - SETUID
+    - SETGID
+  deploy:
+    resources:
+      limits:
+        cpus: '0.50'
+        memory: 512M
 
 volumes:
-  mongodata: # Updated volume name for Mongo
+  mongodata: 
