@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
 
 function Login() {
-  // State to hold form inputs and UI feedback
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false); // Toggles between Login and Sign Up
+  const [isRegistering, setIsRegistering] = useState(false);
   const [message, setMessage] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Choose the correct backend route based on the current mode
-    const endpoint = isRegistering 
-      ? 'http://localhost:5000/register' 
-      : 'http://localhost:5000/login';
+    // Updated to use relative paths matching your server.js routes
+    const endpoint = isRegistering ? '/api/register' : '/api/login';
 
     try {
       const response = await fetch(endpoint, {
@@ -27,15 +24,17 @@ function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage(`✅ Success: ${data.message}`);
-        // If logging in, you would typically redirect the user to the voting dashboard here
-        // e.g., window.location.href = '/dashboard';
+        setMessage(`✅ Success: ${data.message || 'Logged in!'}`);
+        if (!isRegistering) {
+            // Redirect the user to the voting dashboard upon successful login
+            window.location.href = '/dashboard'; 
+        }
       } else {
-        setMessage(`❌ Error: ${data.message}`);
+        setMessage(`❌ Error: ${data.error || 'Something went wrong.'}`);
       }
     } catch (error) {
       console.error("Fetch error:", error);
-      setMessage('❌ Network error. Is the Node.js backend running?');
+      setMessage('❌ Network error. Is the server running?');
     }
   };
 
@@ -64,4 +63,33 @@ function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            style={{ width: '100%', padding: '8px', boxSizing: 'border-box'
+            style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <button 
+          type="submit" 
+          style={{ padding: '10px', backgroundColor: '#007BFF', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+        >
+          {isRegistering ? 'Sign Up' : 'Log In'}
+        </button>
+      </form>
+
+      {message && <p style={{ marginTop: '20px', fontWeight: 'bold' }}>{message}</p>}
+
+      <hr style={{ margin: '30px 0' }} />
+
+      <button 
+        onClick={() => {
+          setIsRegistering(!isRegistering);
+          setMessage(''); 
+        }}
+        style={{ background: 'none', border: 'none', color: '#007BFF', textDecoration: 'underline', cursor: 'pointer' }}
+      >
+        {isRegistering ? 'Already have an account? Log in here.' : 'Need an account? Sign up here.'}
+      </button>
+    </div>
+  );
+}
+
+export default Login;
