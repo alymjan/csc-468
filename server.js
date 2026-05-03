@@ -19,7 +19,8 @@ app.use(session({
 }));
 
 // Connect to MongoDB
-const mongoURI = process.env.MONGO_URI || 'mongodb://db:27017/votingApp';
+// Hardcode 'db' so Docker's internal DNS can resolve it correctly
+const mongoURI = 'mongodb://db:27017/votingApp';
 mongoose.connect(mongoURI)
     .then(() => console.log("Connected to MongoDB."))
     .catch(err => console.error("Error connecting to MongoDB:", err));
