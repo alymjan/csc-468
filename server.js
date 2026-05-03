@@ -19,7 +19,7 @@ app.use(session({
 }));
 
 // Connect to MongoDB
-const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/votingApp';
+const mongoURI = process.env.MONGO_URI || 'mongodb://db:27017/votingApp';
 mongoose.connect(mongoURI)
     .then(() => console.log("Connected to MongoDB."))
     .catch(err => console.error("Error connecting to MongoDB:", err));
