@@ -18,14 +18,13 @@ app.use(session({
     saveUninitialized: false
 }));
 
-// Connect to MongoDB
-// Hardcode 'db' so Docker's internal DNS can resolve it correctly
-const mongoURI = 'mongodb://db:27017/votingApp';
+
+const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/votingApp';
 mongoose.connect(mongoURI)
     .then(() => console.log("Connected to MongoDB."))
     .catch(err => console.error("Error connecting to MongoDB:", err));
 
-// Define Mongoose Schemas and Models
+
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
