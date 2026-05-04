@@ -2,7 +2,6 @@ version: '3.8'
 
 services:
   web:
-    image: alymjanrejepov/voting-app:latest
     build: .
     ports:
       - "8080:3000"
@@ -24,12 +23,6 @@ services:
       - "27017:27017"
     volumes:
       - mongodata:/data/db
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETUID
-      - SETGID
     deploy:
       resources:
         limits:
