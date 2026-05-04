@@ -118,6 +118,24 @@ app.post('/api/vote', async (req, res) => {
     }
 });
 
+const voteSchema = new mongoose.Schema({
+  choice: String,
+  timestamp: { type: Date, default: Date.now }
+});
+const Vote = mongoose.model('Vote', voteSchema);
+
+// Voting endpoint
+app.post('/api/vote', async (req, res) => {
+  const { choice } = req.body;
+  try {
+    const newVote = new Vote({ choice });
+    await newVote.save();
+    res.status(200).json({ message: 'Vote recorded!' });
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 
 app.get('/api/status', (req, res) => {
     if (req.session.userId) {
