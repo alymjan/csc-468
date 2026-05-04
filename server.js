@@ -19,7 +19,7 @@ app.use(session({
 }));
 
 
-const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/votingApp';
+const mongoURI = process.env.MONGO_URI || 'mongodb://db:27017/votingApp';
 
 const connectDB = async () => {
     try {
