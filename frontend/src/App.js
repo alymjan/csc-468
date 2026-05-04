@@ -1,34 +1,32 @@
-import logo from './logo.jpg';
-import './App.css';
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Login from "./Login"; 
-import {useNavigate} from "react-router-dom";
+import React, { useState, useEffect } from 'react';
+import Login from './Login';
+import Dashboard from './Dashboard';
 
-function Home() {
-  const navigate = useNavigate();
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
 
+  // Check if the user is already logged in when the page loads
+  useEffect(() => {
+    fetch('/api/status')
+      .then(res => res.json())
+      .then(data => {
+        if (data.loggedIn) setIsLoggedIn(true);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div style={{textAlign: 'center', marginTop: '50px'}}>Loading the Matrix...</div>;
 
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>Please login to cast your vote!</p>
-        <button className="big-button" onClick={() => navigate("/login")}>
-          Login
-        </button>
-      </header>
+      {isLoggedIn ? (
+        <Dashboard />
+      ) : (
+        <Login onLoginSuccess={() => setIsLoggedIn(true)} />
+      )}
     </div>
-  );
-}
-
-function App() {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/login" element={<Login />} />
-      </Routes>
-    </Router>
   );
 }
 
