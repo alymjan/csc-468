@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
-function Login() {
+// Added 'props' here to receive the callback from App.js
+function Login(props) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
@@ -9,7 +10,6 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Updated to use relative paths matching your server.js routes
     const endpoint = isRegistering ? '/api/register' : '/api/login';
 
     try {
@@ -25,9 +25,12 @@ function Login() {
 
       if (response.ok) {
         setMessage(`✅ Success: ${data.message || 'Logged in!'}`);
+        
+        // If it's a login (not a registration), tell App.js we are logged in
         if (!isRegistering) {
-            // Redirect the user to the voting dashboard upon successful login
-            window.location.href = '/dashboard'; 
+            if (props.onLoginSuccess) {
+                props.onLoginSuccess(); 
+            }
         }
       } else {
         setMessage(`❌ Error: ${data.error || 'Something went wrong.'}`);
