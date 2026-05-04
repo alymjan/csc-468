@@ -1,5 +1,5 @@
 const express = require('express');
-const mongoose = require('mongoose'); // Swapped pg for mongoose
+const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const path = require('path');
@@ -15,28 +15,24 @@ app.use(express.static(path.join(__dirname, 'frontend/build')));
 app.use(session({
     secret: 'super-secret-key', 
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: false,
+    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 } // 24 hours
 }));
-
 
 const mongoURI = process.env.MONGO_URI || 'mongodb://db:27017/votingApp';
 
 const connectDB = async () => {
     try {
-        await mongoose.connect(mongoURI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true
-        });
-        console.log("Connected to MongoDB.");
+        await mongoose.connect(mongoURI);
+        console.log("✅ Connected to MongoDB.");
     } catch (err) {
-        console.error("MongoDB connection failed. Retrying in 5 seconds...", err.message);
+        console.error("❌ MongoDB connection failed. Retrying in 5 seconds...", err.message);
         setTimeout(connectDB, 5000);
     }
 };
-
-// Start connection
 connectDB();
 
+// --- MODELS ---
 
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
@@ -46,97 +42,70 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 
 const voteSchema = new mongoose.Schema({
-    party: { type: String, required: true }
+    choice: { type: String, required: true }, // 'red' or 'blue'
+    timestamp: { type: Date, default: Date.now }
 });
 const Vote = mongoose.model('Vote', voteSchema);
 
 
 // --- ROUTES ---
 
+// 1. Register
 app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        
-        // Create and save the new user
-        const newUser = new User({ 
-            username, 
-            password: hashedPassword 
-        });
+        const newUser = new User({ username, password: hashedPassword });
         await newUser.save();
-        
         res.status(201).json({ message: "User registered. You can now login." });
     } catch (err) {
-        // MongoDB throws code 11000 for duplicate unique keys
-        if (err.code === 11000) {
-            res.status(400).json({ error: "Username might already exist." });
-        } else {
-            res.status(500).json({ error: "Server error during registration." });
-        }
+        if (err.code === 11000) return res.status(400).json({ error: "Username already exists." });
+        res.status(500).json({ error: "Registration failed." });
     }
 });
 
-
+// 2. Login
 app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        // Find user by username
         const user = await User.findOne({ username });
-        
         if (user && await bcrypt.compare(password, user.password)) {
-            req.session.userId = user._id; // MongoDB uses _id instead of id
+            req.session.userId = user._id;
             req.session.hasVoted = user.has_voted;
             return res.json({ message: "Login successful!", hasVoted: user.has_voted }); 
         }
-        
         res.status(401).json({ error: "Invalid credentials." });
     } catch (err) {
-        res.status(500).json({ error: "Server error during login." });
+        res.status(500).json({ error: "Login failed." });
     }
 });
 
-
+// 3. Vote (The Pill Choice)
 app.post('/api/vote', async (req, res) => {
-    if (!req.session.userId) return res.status(403).json({ error: "Must be logged in to vote." });
-    if (req.session.hasVoted) return res.status(403).json({ error: "You have already voted!" });
+    // Security Checks
+    if (!req.session.userId) return res.status(403).json({ error: "Must be logged in." });
+    if (req.session.hasVoted) return res.status(403).json({ error: "Already chosen a pill!" });
 
-    const { party } = req.body;
-    if (party !== 'Republican' && party !== 'Democrat') return res.status(400).json({ error: "Invalid party." });
+    const { choice } = req.body; // 'red' or 'blue'
+    if (choice !== 'red' && choice !== 'blue') return res.status(400).json({ error: "Invalid choice." });
 
     try {
-        // 1. Record the vote
-        const newVote = new Vote({ party });
+        // Record the vote
+        const newVote = new Vote({ choice });
         await newVote.save();
 
-        // 2. Mark the user as having voted
+        // Mark user as voted in DB
         await User.findByIdAndUpdate(req.session.userId, { has_voted: true });
         
+        // Update session
         req.session.hasVoted = true;
-        res.json({ message: `Successfully voted for ${party}.` });
+        res.json({ message: `Truth accepted. You chose the ${choice} pill.` });
     } catch (err) {
-        res.status(500).json({ error: "Voting failed." });
+        res.status(500).json({ error: "Database error during voting." });
     }
 });
 
-const voteSchema = new mongoose.Schema({
-  choice: String,
-  timestamp: { type: Date, default: Date.now }
-});
-const Vote = mongoose.model('Vote', voteSchema);
-
-// Voting endpoint
-app.post('/api/vote', async (req, res) => {
-  const { choice } = req.body;
-  try {
-    const newVote = new Vote({ choice });
-    await newVote.save();
-    res.status(200).json({ message: 'Vote recorded!' });
-  } catch (err) {
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
-
+// 4. Status Check
 app.get('/api/status', (req, res) => {
     if (req.session.userId) {
         res.json({ loggedIn: true, hasVoted: req.session.hasVoted });
@@ -145,10 +114,10 @@ app.get('/api/status', (req, res) => {
     }
 });
 
-// Fallback to serve the React app
+// Fallback to React
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend/build/index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
