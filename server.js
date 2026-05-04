@@ -20,9 +20,22 @@ app.use(session({
 
 
 const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/votingApp';
-mongoose.connect(mongoURI)
-    .then(() => console.log("Connected to MongoDB."))
-    .catch(err => console.error("Error connecting to MongoDB:", err));
+
+const connectDB = async () => {
+    try {
+        await mongoose.connect(mongoURI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        });
+        console.log("Connected to MongoDB.");
+    } catch (err) {
+        console.error("MongoDB connection failed. Retrying in 5 seconds...", err.message);
+        setTimeout(connectDB, 5000);
+    }
+};
+
+// Start connection
+connectDB();
 
 
 const userSchema = new mongoose.Schema({
